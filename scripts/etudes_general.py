@@ -36,6 +36,7 @@ from etudes.signal_combine import Etudes1PsrSignal
 from etudes.gp_signals import create_fourierdesignmatrix_red
 
 import argparse
+from enterprise import Pulsar
 
 ## Fix the plot colour to white
 plt.rcParams.update({'axes.facecolor':'white'})
@@ -78,10 +79,7 @@ if psrlist is not None:
 
 ## Read into enterprise objects
 psrs = []
-if sse is not None and sse != "" and sse != "None":
-    ephemeris = sse
-else:
-    ephemeris = 'DE440' # Static as not using bayesephem
+ephemeris = 'DE440' # Static as not using bayesephem
 
 for p, t in zip(parfiles, timfiles):
     psr = Pulsar(p, t, ephem=ephemeris)
@@ -199,6 +197,20 @@ def make_psr_objs(psrs, Fmats, Ffreqs, Ts, has_basis_ecorr=False, has_gwb=True, 
     
     return psrobjs
 
+# function to make all individual pulsar objects and store them in a list
+def make_psr_objs_MM_edit(psrs, fix_wn=True, fix_wn_vals=None, noise=None):
+    psrobjs = []
+    tref = np.max([p.toas.min() for p in psrs])
+    for psr in psrs:
+        
+        psrnoise = [ n for n in noise if psr.name in n]
+
+        psrobjs.append(Etudes1PsrSignal_MM_edit(psr=psr, has_tm=True, fix_wn=fix_wn,
+                                                fix_wn_vals=fix_wn_vals, tref=tref, psrnoise=psrnoise))
+    
+    return psrobjs
+
+
 # main blackjax inference loop with progress bar for both NUTS adaptation and sampling
 def inference_loop(rng_key, kernel, initial_state, num_samples):
     @jax.jit
@@ -214,7 +226,7 @@ def inference_loop(rng_key, kernel, initial_state, num_samples):
     return states
 
 # 
-def main(resdir, nburnin=2_000, nsamples=10_000, noise):
+def main(resdir, nburnin=2_000, nsamples=10_000, noise, psrs):
     """
     resdir: directory location for where you want the resulting chains to be store
     """
@@ -231,11 +243,11 @@ def main(resdir, nburnin=2_000, nsamples=10_000, noise):
     rng_key = jax.random.PRNGKey(int(date.today().strftime("%Y%m%d")))
 
     # load data and noise dictionary (noise dict currently not used)
-    datadir = ''
-    picklefile = ''
+    # datadir = ''
+    # picklefile = ''
 
-    with open(picklefile, 'rb') as f:
-        psrs = pickle.load(f)
+    # with open(picklefile, 'rb') as f:
+    #     psrs = pickle.load(f)
 
     # here's where the noise dictionary is created
     # only valid when we're using simplified simulated data
@@ -248,13 +260,15 @@ def main(resdir, nburnin=2_000, nsamples=10_000, noise):
     Fmats, Ffreqs = [], []
     Ts = []
 
-    for psr in psrs:
-        T = psr.Mmat
-        Fmat, Ffreq = create_fourierdesignmatrix_red(psr.toas)
-        T = jnp.concatenate([Fmat, T], axis=1)
-        Fmats.append(Fmat)
-        Ffreqs.append(Ffreq)
-        Ts.append(T)
+    # for psr in psrs:
+    #     T = psr.Mmat
+    #     # I think this should be fine.. 
+    #     # I don't have a great handle on how this is set up vs the other noise
+    #     Fmat, Ffreq = create_fourierdesignmatrix_red(psr.toas)
+    #     T = jnp.concatenate([Fmat, T], axis=1)
+    #     Fmats.append(Fmat)
+    #     Ffreqs.append(Ffreq)
+    #     Ts.append(T)
     
     # create list of varying parameters in model
     params = make_model_MM_edit(psrs, noise, has_gwb=False, has_cw=False)
@@ -265,9 +279,7 @@ def main(resdir, nburnin=2_000, nsamples=10_000, noise):
         f.write('\n'.join(param_names))
     
     # create individual pulsar objects
-    psrobjs = make_psr_objs(psrs, Fmats, Ffreqs, Ts,
-                            efac=True, equad=False,
-                            fix_wn=True, fix_wn_vals=fix_wn_vals)
+    psrobjs = make_psr_objs_MM_edit(psrs, fix_wn=True, fix_wn_vals=None, noise=param_names)
     
     # make interval object (interval being the coordinate transformation used)
     pta = Interval(psrs, psrobjs, params)

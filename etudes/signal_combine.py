@@ -347,7 +347,7 @@ class Etudes1PsrSignal_MM_edit(object):
                  has_rn=True, has_tm=True, has_gwb=True, has_cw=True,
                  Umat=None, ecorr_weights=None, Fmat=None, Ffreqs=None,
                  efac=True, equad=True, fix_wn=True, fix_wn_vals=None,
-                 rn_comps=30, gwb_comps=5, tref=0):
+                 rn_comps=30, gwb_comps=5, tref=0, psrnoise):
         self.psr = psr
         self.backend_select = backend_select
 
