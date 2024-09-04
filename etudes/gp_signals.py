@@ -33,6 +33,90 @@ def create_fourierdesignmatrix_red(toas, nmodes=30):
 
     return F, Ffreqs
 
+def create_fourierdesignmatrix_red(toas, nmodes=30):
+    N = jnp.size(toas)
+    F = jnp.zeros((N, 2 * nmodes))
+    Tspan = jnp.max(toas) - jnp.min(toas)
+
+    # This is just here to test jaxpr
+    c = N * 50.0
+
+    f = 1.0 * jnp.arange(1, nmodes + 1) / Tspan
+    Ffreqs = jnp.repeat(f, 2)
+
+    F = F.at[:, ::2].set(jnp.sin(2 * jnp.pi * toas[:, None] * f[None, :]))
+    F = F.at[:, 1::2].set(jnp.cos(2 * jnp.pi * toas[:, None] * f[None, :]))
+
+    return F, Ffreqs
+
+
+def create_fourierdesignmatrix_dm(
+    toas, freqs, nmodes=30, Tspan=None, pshift=False, fref=1400, logf=False, fmin=None, fmax=None, modes=None
+):
+    """
+    Construct DM-variation fourier design matrix. Current
+    normalization expresses DM signal as a deviation [seconds]
+    at fref [MHz]
+
+    :param toas: vector of time series in seconds
+    :param freqs: radio frequencies of observations [MHz]
+    :param nmodes: number of fourier coefficients to use
+    :param Tspan: option to some other Tspan
+    :param pshift: option to add random phase shift
+    :param fref: reference frequency [MHz]
+    :param logf: use log frequency spacing
+    :param fmin: lower sampling frequency
+    :param fmax: upper sampling frequency
+    :param modes: option to provide explicit list or array of
+                  sampling frequencies
+
+    :return: F: DM-variation fourier design matrix
+    :return: f: Sampling frequencies
+    """
+
+    # get base fourier design matrix and frequencies
+    F, Ffreqs = create_fourierdesignmatrix_red(
+        toas, nmodes=nmodes, Tspan=Tspan, logf=logf, fmin=fmin, fmax=fmax, pshift=pshift, modes=modes
+    )
+
+    # compute the DM-variation vectors
+    Dm = (fref / freqs) ** 2
+
+    return F * Dm[:, None], Ffreqs
+
+def createfourierdesignmatrix_chromatic(
+    toas, freqs, nmodes=30, Tspan=None, logf=False, fmin=None, fmax=None, idx=4, modes=None
+):
+    """
+    Construct Scattering-variation fourier design matrix.
+
+    :param toas: vector of time series in seconds
+    :param freqs: radio frequencies of observations [MHz]
+    :param nmodes: number of fourier coefficients to use
+    :param freq: option to output frequencies
+    :param Tspan: option to some other Tspan
+    :param logf: use log frequency spacing
+    :param fmin: lower sampling frequency
+    :param fmax: upper sampling frequency
+    :param idx: Index of chromatic effects
+    :param modes: option to provide explicit list or array of
+                  sampling frequencies
+
+    :return: F: Chromatic-variation fourier design matrix
+    :return: f: Sampling frequencies
+    """
+
+    # get base fourier design matrix and frequencies
+    F, Ffreqs = create_fourierdesignmatrix_red(
+        toas, nmodes=nmodes, Tspan=Tspan, logf=logf, fmin=fmin, fmax=fmax, modes=modes
+    )
+
+    # compute the DM-variation vectors
+    Dm = (1400 / freqs) ** idx
+
+    return F * Dm[:, None], Ffreqs
+
+
 def create_quantization_matrix(toas, dt=1, nmin=2):
     isort = jnp.argsort(toas)
 

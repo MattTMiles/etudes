@@ -51,6 +51,38 @@ class Uniform(Parameter):
     def sample(self):
         return np.random.uniform(self.pmin, self.pmax)
     
+class ConstantParameter(object):
+    """Constant Parameter base class."""
+
+    def __init__(self, value, name):
+        self.name = name
+        self.value = value
+
+    @property
+    def value(self):
+        return self.value
+
+    @value.setter
+    def value(self, value):
+        self.value = value
+
+    def __call__(self, name):
+        return self
+
+    def __repr__(self):
+        return "{}:Constant={}".format(self.name, self.value)
+
+
+class Constant(ConstantParameter):
+    """
+    Constant parameter class. 
+    Time will tell if this works.
+    """
+    def __init__(self, value, name):
+        super(Constant, self).__init__(value, name)
+
+
+    
 class LinearExp(Parameter):
     """
     Log-uniform distribution class
